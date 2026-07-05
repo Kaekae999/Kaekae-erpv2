@@ -24,33 +24,3 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-input,
-select,
-textarea {
-  background-color: white;
-  color: #0f172a;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #94a3b8;
-}
-
-label,
-th,
-td,
-p,
-span,
-h1,
-h2,
-h3 {
-  color: inherit;
-}
-
-.bg-white {
-  color: #0f172a;
-}
-
-.bg-slate-100 {
-  color: #0f172a;
-}
