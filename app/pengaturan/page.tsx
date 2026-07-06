@@ -53,17 +53,6 @@ const exportTables = [
   },
 ];
 
-const resetSteps = [
-  "purchase_costs",
-  "sales_details",
-  "sales_headers",
-  "purchase_details",
-  "purchase_headers",
-  "product_stocks",
-  "operating_expenses",
-  "profit_distributions",
-  "cash_transactions",
-];
 
 export default function PengaturanPage() {
   const router = useRouter();
@@ -210,18 +199,15 @@ export default function PengaturanPage() {
     if (!finalConfirm) return;
 
     try {
-      for (const table of resetSteps) {
-        const { error } = await supabase
-          .from(table)
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
+      const { error } = await supabase.rpc("reset_dummy_transactions");
 
-        if (error) {
-          throw new Error(`Gagal reset ${table}: ${error.message}`);
-        }
+      if (error) {
+        throw new Error(error.message);
       }
 
       alert("Reset data transaksi dummy berhasil. Master data tetap aman.");
+
+      router.refresh();
     } catch (error) {
       alert(
         "Reset gagal: " +
@@ -281,7 +267,7 @@ export default function PengaturanPage() {
         <SettingCard
           icon={<ShieldAlert size={24} />}
           title="Reset Data Transaksi"
-          description="Menghapus data transaksi dummy tanpa menghapus master produk, supplier, customer, gudang, rekening, dan unit bisnis."
+          description="Menghapus data transaksi dummy tanpa menghapus master produk, supplier, customer, gudang, rekening, unit bisnis, kategori, dan satuan."
           button="Reset Dummy"
           danger
           onClick={resetTransaksiDummy}

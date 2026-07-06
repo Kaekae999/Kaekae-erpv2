@@ -24,15 +24,20 @@ export default function Header({
 }) {
   const { workspace } = useWorkspace();
 
+  const [today, setToday] = useState("");
   const [notifications, setNotifications] = useState<ProfitNotification[]>([]);
   const [openNotif, setOpenNotif] = useState(false);
 
-  const today = new Date().toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    );
+  }, []);
 
   useEffect(() => {
     loadProfitNotifications();
@@ -155,14 +160,16 @@ export default function Header({
     return notifications.reduce((sum, item) => sum + item.remaining, 0);
   }, [notifications]);
 
-  const monthLabel = new Date(
-    new Date().getFullYear(),
-    new Date().getMonth(),
-    1
-  ).toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = useMemo(() => {
+    return new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1
+    ).toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+  }, []);
 
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200 px-4 md:px-6 lg:px-8">
@@ -183,7 +190,7 @@ export default function Header({
             </h2>
 
             <p className="text-xs md:text-sm text-slate-500 truncate">
-              {today}
+              {today || "-"}
             </p>
           </div>
         </div>
