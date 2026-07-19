@@ -40,6 +40,7 @@ const menuGroups = [
     name: "MASTER DATA",
     basePaths: ["/master", "/inventory"],
     items: [
+      { name: "Perusahaan", href: "/master/perusahaan", icon: Building2 },
       { name: "Unit Bisnis", href: "/master/unit-bisnis", icon: BriefcaseBusiness },
       { name: "Produk", href: "/master/produk", icon: Package },
       { name: "Kategori", href: "/master/kategori", icon: Tags },
@@ -75,9 +76,7 @@ const menuGroups = [
     key: "dokumen",
     name: "DOKUMEN",
     basePaths: ["/dokumen"],
-    items: [
-      { name: "Invoice", href: "/dokumen/invoice", icon: FileText },
-    ],
+    items: [{ name: "Invoice", href: "/dokumen/invoice", icon: FileText }],
   },
   {
     key: "laporan",
