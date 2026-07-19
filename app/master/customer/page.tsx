@@ -47,12 +47,12 @@ export default function CustomerPage() {
         {
           name: "city",
           label: "Kota",
-          placeholder: "Contoh: Tokyo",
+          placeholder: "Contoh: Semarang",
         },
         {
           name: "phone",
           label: "No. Telepon / WhatsApp",
-          placeholder: "Contoh: +81 90 1234 5678",
+          placeholder: "Contoh: 081234567890",
         },
         {
           name: "contact_person",
