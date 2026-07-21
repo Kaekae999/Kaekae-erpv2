@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bell, Menu, UserCircle } from "lucide-react";
 import WorkspaceSelector from "./WorkspaceSelector";
-import CompanySelector from "./CompanySelector";
+import CompanySelector from "@/components/layout/CompanySelector";
 import { supabase } from "@/lib/supabase";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
