@@ -7,12 +7,12 @@ export interface SalesItemInput {
 }
 
 export interface SaveSalesInput {
+  company_id: string;
   transaction_number: string;
   transaction_date: string;
   customer_id: string;
   warehouse_id: string;
   items: SalesItemInput[];
-
   discount_amount?: number;
   tax_percent?: number;
   tax_amount?: number;

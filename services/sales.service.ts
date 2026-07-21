@@ -3,6 +3,10 @@ import { SaveSalesInput } from "@/types/sales";
 
 export const SalesService = {
   async saveSales(input: SaveSalesInput) {
+    if (!input.company_id) {
+      throw new Error("Perusahaan aktif belum dipilih.");
+    }
+
     const subtotalBarang = input.items.reduce(
       (sum, item) => sum + Number(item.subtotal || 0),
       0
@@ -63,6 +67,7 @@ export const SalesService = {
     const { data: header, error: headerError } = await supabase
       .from("sales_headers")
       .insert({
+        company_id: input.company_id,
         transaction_number: input.transaction_number,
         transaction_date: input.transaction_date,
         customer_id: input.customer_id,
@@ -103,12 +108,10 @@ export const SalesService = {
 
     for (const item of detailRows) {
       const newQty = item.old_qty - item.qty;
-
       const newStockValue =
         newQty === 0
           ? 0
           : Math.max(0, Math.round(item.old_stock_value - item.total_cost));
-
       const newAverageCost = newQty === 0 ? 0 : newStockValue / newQty;
 
       const { error: updateError } = await supabase
@@ -135,7 +138,6 @@ export const SalesService = {
 
     if (headerError) throw new Error(headerError.message);
     if (!header) throw new Error("Data penjualan tidak ditemukan.");
-
     if (header.status === "CANCELLED") {
       throw new Error("Penjualan ini sudah dibatalkan sebelumnya.");
     }
@@ -206,7 +208,6 @@ export const SalesService = {
       .eq("id", salesId);
 
     if (cancelError) throw new Error(cancelError.message);
-
     return true;
   },
 };

@@ -6,6 +6,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { SalesService } from "@/services/sales.service";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 
 interface Customer {
@@ -40,6 +41,7 @@ interface SalesHistory {
   transaction_date: string;
   customer_id: string;
   warehouse_id: string;
+  company_id: string;
   subtotal_amount: number;
   discount_amount: number;
   tax_percent: number;
@@ -49,6 +51,7 @@ interface SalesHistory {
   status: string;
   customers: { name: string } | null;
   warehouses: { name: string } | null;
+  companies: { name: string } | null;
 }
 
 type DiscountType = "nominal" | "percent";
@@ -62,6 +65,7 @@ function generateTransactionNumber() {
 }
 
 export default function PenjualanPage() {
+  const { company, companies } = useWorkspace();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -132,6 +136,7 @@ export default function PenjualanPage() {
         transaction_date,
         customer_id,
         warehouse_id,
+        company_id,
         subtotal_amount,
         discount_amount,
         tax_percent,
@@ -140,7 +145,8 @@ export default function PenjualanPage() {
         total_amount,
         status,
         customers(name),
-        warehouses(name)
+        warehouses(name),
+        companies(name)
       `)
       .order("transaction_date", { ascending: false })
       .limit(30);
@@ -256,6 +262,7 @@ export default function PenjualanPage() {
   const grandTotal = dpp + totalPajak;
 
   async function handleSaveSales() {
+    if (!company) return alert("Perusahaan aktif wajib dipilih.");
     if (!salesDate) return alert("Tanggal penjualan wajib diisi.");
     if (!customerId) return alert("Customer wajib dipilih.");
     if (!warehouseId) return alert("Gudang wajib dipilih.");
@@ -265,6 +272,7 @@ export default function PenjualanPage() {
 
     try {
       await SalesService.saveSales({
+        company_id: company,
         transaction_number: transactionNumber,
         transaction_date: salesDate,
         customer_id: customerId,
@@ -457,7 +465,19 @@ export default function PenjualanPage() {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+        <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6">
+          <label className="text-sm font-semibold">Perusahaan Aktif</label>
+          <input
+            value={companies.find((item) => item.id === company)?.name || "Belum dipilih"}
+            readOnly
+            className="mt-2 w-full border rounded-2xl px-4 py-3 bg-slate-100 font-semibold"
+          />
+          <p className="text-xs text-slate-500 mt-2">
+            Ganti perusahaan melalui selector di Header.
+          </p>
+        </div>
+
         <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6">
           <label className="text-sm font-semibold">No Transaksi</label>
           <input
@@ -757,6 +777,7 @@ export default function PenjualanPage() {
               <tr>
                 <th className="p-4 text-left">No Transaksi</th>
                 <th className="p-4 text-left">Tanggal</th>
+                <th className="p-4 text-left">Perusahaan</th>
                 <th className="p-4 text-left">Customer</th>
                 <th className="p-4 text-left">Gudang</th>
                 <th className="p-4 text-right">Subtotal</th>
@@ -775,6 +796,7 @@ export default function PenjualanPage() {
                     {sale.transaction_number}
                   </td>
                   <td className="p-4">{sale.transaction_date}</td>
+                  <td className="p-4">{sale.companies?.name || "-"}</td>
                   <td className="p-4">{sale.customers?.name || "-"}</td>
                   <td className="p-4">{sale.warehouses?.name || "-"}</td>
                   <td className="p-4 text-right">
@@ -848,7 +870,7 @@ export default function PenjualanPage() {
 
               {salesHistory.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-500">
+                  <td colSpan={11} className="p-8 text-center text-slate-500">
                     Belum ada riwayat penjualan.
                   </td>
                 </tr>

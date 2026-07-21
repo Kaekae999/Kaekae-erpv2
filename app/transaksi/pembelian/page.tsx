@@ -53,12 +53,14 @@ interface PurchaseHistory {
   transaction_date: string;
   supplier_id: string;
   warehouse_id: string;
+  company_id: string;
   goods_amount: number;
   operational_cost: number;
   grand_total: number;
   status: string;
   suppliers: { name: string } | null;
   warehouses: { name: string } | null;
+  companies: { name: string } | null;
 }
 
 function generateTransactionNumber() {
@@ -69,7 +71,7 @@ function generateTransactionNumber() {
 }
 
 export default function PembelianPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, company, companies } = useWorkspace();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -157,12 +159,14 @@ export default function PembelianPage() {
         transaction_date,
         supplier_id,
         warehouse_id,
+        company_id,
         goods_amount,
         operational_cost,
         grand_total,
         status,
         suppliers(name),
-        warehouses(name)
+        warehouses(name),
+        companies(name)
       `)
       .order("transaction_date", { ascending: false })
       .limit(30);
@@ -255,6 +259,7 @@ export default function PembelianPage() {
   }
 
   async function handleSavePurchase() {
+    if (!company) return alert("Perusahaan aktif wajib dipilih.");
     if (!purchaseDate) return alert("Tanggal pembelian wajib diisi.");
     if (!supplierId) return alert("Supplier wajib dipilih.");
     if (!warehouseId) return alert("Gudang wajib dipilih.");
@@ -264,6 +269,7 @@ export default function PembelianPage() {
 
     try {
       await PurchaseService.savePurchase({
+        company_id: company,
         transaction_number: transactionNumber,
         transaction_date: purchaseDate,
         supplier_id: supplierId,
@@ -510,7 +516,19 @@ export default function PembelianPage() {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+        <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6">
+          <label className="text-sm font-semibold">Perusahaan Aktif</label>
+          <input
+            value={companies.find((item) => item.id === company)?.name || "Belum dipilih"}
+            readOnly
+            className="mt-2 w-full border rounded-2xl px-4 py-3 bg-slate-100 font-semibold"
+          />
+          <p className="text-xs text-slate-500 mt-2">
+            Ganti perusahaan melalui selector di Header.
+          </p>
+        </div>
+
         <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6">
           <label className="text-sm font-semibold">No Transaksi</label>
           <input
@@ -782,6 +800,7 @@ export default function PembelianPage() {
               <tr>
                 <th className="p-4 text-left">No Transaksi</th>
                 <th className="p-4 text-left">Tanggal</th>
+                <th className="p-4 text-left">Perusahaan</th>
                 <th className="p-4 text-left">Supplier</th>
                 <th className="p-4 text-left">Gudang</th>
                 <th className="p-4 text-right">Barang</th>
@@ -799,6 +818,7 @@ export default function PembelianPage() {
                     {purchase.transaction_number}
                   </td>
                   <td className="p-4">{purchase.transaction_date}</td>
+                  <td className="p-4">{purchase.companies?.name || "-"}</td>
                   <td className="p-4">{purchase.suppliers?.name || "-"}</td>
                   <td className="p-4">{purchase.warehouses?.name || "-"}</td>
                   <td className="p-4 text-right">
@@ -874,7 +894,7 @@ export default function PembelianPage() {
 
               {purchaseHistory.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-500">
+                  <td colSpan={10} className="p-8 text-center text-slate-500">
                     Belum ada riwayat pembelian.
                   </td>
                 </tr>

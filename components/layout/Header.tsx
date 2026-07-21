@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bell, Menu, UserCircle } from "lucide-react";
 import WorkspaceSelector from "./WorkspaceSelector";
+import CompanySelector from "./CompanySelector";
 import { supabase } from "@/lib/supabase";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
@@ -76,13 +77,8 @@ export default function Header({
           .select(`
             subtotal,
             total_cost,
-            sales_headers!inner(
-              transaction_date,
-              status
-            ),
-            products!inner(
-              business_type_id
-            )
+            sales_headers!inner(transaction_date, status),
+            products!inner(business_type_id)
           `)
           .eq("products.business_type_id", business.id)
           .gte("sales_headers.transaction_date", startDate)
@@ -156,20 +152,23 @@ export default function Header({
     }
   }
 
-  const totalRemainingProfit = useMemo(() => {
-    return notifications.reduce((sum, item) => sum + item.remaining, 0);
-  }, [notifications]);
+  const totalRemainingProfit = useMemo(
+    () => notifications.reduce((sum, item) => sum + item.remaining, 0),
+    [notifications]
+  );
 
-  const monthLabel = useMemo(() => {
-    return new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
-      1
-    ).toLocaleDateString("id-ID", {
-      month: "long",
-      year: "numeric",
-    });
-  }, []);
+  const monthLabel = useMemo(
+    () =>
+      new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1
+      ).toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      }),
+    []
+  );
 
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200 px-4 md:px-6 lg:px-8">
@@ -188,15 +187,18 @@ export default function Header({
             <h2 className="text-lg md:text-xl font-bold text-slate-900 truncate">
               Halo, Zea 👋
             </h2>
-
             <p className="text-xs md:text-sm text-slate-500 truncate">
               {today || "-"}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4 shrink-0">
-          <div className="hidden sm:block">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+          <div className="hidden lg:block">
+            <CompanySelector />
+          </div>
+
+          <div className="hidden xl:block">
             <WorkspaceSelector />
           </div>
 
@@ -207,7 +209,6 @@ export default function Header({
               className="flex w-11 h-11 rounded-2xl bg-slate-100 items-center justify-center hover:bg-slate-200 transition relative"
             >
               <Bell size={20} />
-
               {notifications.length > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[11px] font-black flex items-center justify-center">
                   {notifications.length}
@@ -218,10 +219,7 @@ export default function Header({
             {openNotif && (
               <div className="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden z-50">
                 <div className="p-4 border-b">
-                  <p className="font-black text-slate-900">
-                    Notifikasi Laba
-                  </p>
-
+                  <p className="font-black text-slate-900">Notifikasi Laba</p>
                   <p className="text-xs text-slate-500 mt-1">
                     Periode {monthLabel}
                   </p>
@@ -243,11 +241,9 @@ export default function Header({
                         <p className="font-bold text-slate-900">
                           {item.businessName}
                         </p>
-
                         <p className="text-sm text-slate-500 mt-1">
                           Laba belum dibagikan:
                         </p>
-
                         <p className="font-black text-emerald-700 mt-1">
                           Rp {Math.round(item.remaining).toLocaleString("id-ID")}
                         </p>
@@ -261,7 +257,6 @@ export default function Header({
                     <p className="text-xs text-slate-500">
                       Total belum dibagikan
                     </p>
-
                     <p className="font-black text-slate-900">
                       Rp {Math.round(totalRemainingProfit).toLocaleString("id-ID")}
                     </p>
@@ -273,7 +268,6 @@ export default function Header({
 
           <div className="flex items-center gap-3 bg-slate-100 px-3 md:px-4 py-2 rounded-2xl">
             <UserCircle size={26} />
-
             <div className="hidden md:block">
               <p className="text-sm font-semibold">Zea</p>
               <p className="text-xs text-slate-500">Owner</p>
@@ -282,7 +276,8 @@ export default function Header({
         </div>
       </div>
 
-      <div className="sm:hidden pb-3">
+      <div className="lg:hidden pb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <CompanySelector />
         <WorkspaceSelector />
       </div>
     </header>

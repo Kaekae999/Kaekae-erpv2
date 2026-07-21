@@ -3,6 +3,10 @@ import { SavePurchaseInput } from "@/types/purchase";
 
 export const PurchaseService = {
   async savePurchase(input: SavePurchaseInput) {
+    if (!input.company_id) {
+      throw new Error("Perusahaan aktif belum dipilih.");
+    }
+
     const totalBarang = input.items.reduce(
       (sum, item) => sum + Number(item.subtotal || 0),
       0
@@ -18,6 +22,7 @@ export const PurchaseService = {
     const { data: header, error: headerError } = await supabase
       .from("purchase_headers")
       .insert({
+        company_id: input.company_id,
         transaction_number: input.transaction_number,
         transaction_date: input.transaction_date,
         supplier_id: input.supplier_id,
@@ -145,7 +150,6 @@ export const PurchaseService = {
 
     if (headerError) throw new Error(headerError.message);
     if (!header) throw new Error("Data pembelian tidak ditemukan.");
-
     if (header.status === "CANCELLED") {
       throw new Error("Pembelian ini sudah dibatalkan sebelumnya.");
     }
@@ -171,10 +175,7 @@ export const PurchaseService = {
       if (stockError) throw new Error(stockError.message);
       if (!stock) throw new Error("Stok produk tidak ditemukan.");
 
-      const currentQty = Number(stock.qty || 0);
-      const cancelQty = Number(detail.qty || 0);
-
-      if (currentQty < cancelQty) {
+      if (Number(stock.qty || 0) < Number(detail.qty || 0)) {
         throw new Error(
           "Pembelian tidak bisa dibatalkan karena stok saat ini lebih kecil dari qty pembelian. Kemungkinan barang sudah terjual."
         );
@@ -199,7 +200,6 @@ export const PurchaseService = {
 
       const cancelQty = Number(detail.qty || 0);
       const cancelValue = Number(detail.total_cost || 0);
-
       const newQty = currentQty - cancelQty;
       const newValue = Math.max(0, currentValue - cancelValue);
       const newAverageCost = newQty === 0 ? 0 : newValue / newQty;
@@ -218,13 +218,10 @@ export const PurchaseService = {
 
     const { error: cancelError } = await supabase
       .from("purchase_headers")
-      .update({
-        status: "CANCELLED",
-      })
+      .update({ status: "CANCELLED" })
       .eq("id", purchaseId);
 
     if (cancelError) throw new Error(cancelError.message);
-
     return true;
   },
 };

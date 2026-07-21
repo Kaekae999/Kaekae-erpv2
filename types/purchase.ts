@@ -12,6 +12,7 @@ export interface PurchaseCostInput {
 }
 
 export interface SavePurchaseInput {
+  company_id: string;
   transaction_number: string;
   transaction_date: string;
   supplier_id: string;
