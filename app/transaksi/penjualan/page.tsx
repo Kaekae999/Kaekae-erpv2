@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { SalesService } from "@/services/sales.service";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import InvoiceIdentityFields from "@/components/forms/InvoiceIdentityFields";
 
 interface Customer {
   id: string;
@@ -42,6 +43,11 @@ interface SalesHistory {
   customer_id: string;
   warehouse_id: string;
   company_id: string;
+  invoice_company_id: string | null;
+  bank_account_id: string | null;
+  due_date: string | null;
+  invoice_notes: string | null;
+  terms_conditions: string | null;
   subtotal_amount: number;
   discount_amount: number;
   tax_percent: number;
@@ -80,6 +86,14 @@ export default function PenjualanPage() {
     new Date().toISOString().split("T")[0]
   );
 
+  const [invoiceIdentity, setInvoiceIdentity] = useState({
+    invoice_company_id: "",
+    bank_account_id: "",
+    due_date: "",
+    invoice_notes: "",
+    terms_conditions: "",
+  });
+
   const [selectedProduct, setSelectedProduct] = useState("");
   const [qty, setQty] = useState("");
   const [price, setPrice] = useState("");
@@ -95,8 +109,20 @@ export default function PenjualanPage() {
 
   useEffect(() => {
     loadMasterData();
-    loadSalesHistory();
   }, []);
+
+  useEffect(() => {
+    loadSalesHistory();
+  }, [company]);
+
+  useEffect(() => {
+    if (!company) return;
+
+    setInvoiceIdentity((prev) => ({
+      ...prev,
+      invoice_company_id: prev.invoice_company_id || company,
+    }));
+  }, [company]);
 
   async function loadMasterData() {
     const customerResult = await supabase
@@ -128,7 +154,7 @@ export default function PenjualanPage() {
   }
 
   async function loadSalesHistory() {
-    const { data, error } = await supabase
+    let query = supabase
       .from("sales_headers")
       .select(`
         id,
@@ -137,6 +163,11 @@ export default function PenjualanPage() {
         customer_id,
         warehouse_id,
         company_id,
+        invoice_company_id,
+        bank_account_id,
+        due_date,
+        invoice_notes,
+        terms_conditions,
         subtotal_amount,
         discount_amount,
         tax_percent,
@@ -147,7 +178,13 @@ export default function PenjualanPage() {
         customers(name),
         warehouses(name),
         companies(name)
-      `)
+      `);
+
+    if (company) {
+      query = query.eq("company_id", company);
+    }
+
+    const { data, error } = await query
       .order("transaction_date", { ascending: false })
       .limit(30);
 
@@ -172,6 +209,13 @@ export default function PenjualanPage() {
     setDiscountValue("");
     setTaxMode("none");
     setCustomTaxPercent("");
+    setInvoiceIdentity({
+      invoice_company_id: company || "",
+      bank_account_id: "",
+      due_date: "",
+      invoice_notes: "",
+      terms_conditions: "",
+    });
   }
 
   function handleProductChange(productId: string) {
@@ -266,6 +310,12 @@ export default function PenjualanPage() {
     if (!salesDate) return alert("Tanggal penjualan wajib diisi.");
     if (!customerId) return alert("Customer wajib dipilih.");
     if (!warehouseId) return alert("Gudang wajib dipilih.");
+    if (!invoiceIdentity.invoice_company_id) {
+      return alert("Perusahaan pada invoice wajib dipilih.");
+    }
+    if (!invoiceIdentity.bank_account_id) {
+      return alert("Rekening pembayaran wajib dipilih.");
+    }
     if (items.length === 0) return alert("Detail barang masih kosong.");
 
     setIsSaving(true);
@@ -273,6 +323,11 @@ export default function PenjualanPage() {
     try {
       await SalesService.saveSales({
         company_id: company,
+        invoice_company_id: invoiceIdentity.invoice_company_id,
+        bank_account_id: invoiceIdentity.bank_account_id || null,
+        due_date: invoiceIdentity.due_date || null,
+        invoice_notes: invoiceIdentity.invoice_notes || null,
+        terms_conditions: invoiceIdentity.terms_conditions || null,
         transaction_number: transactionNumber,
         transaction_date: salesDate,
         customer_id: customerId,
@@ -363,6 +418,13 @@ export default function PenjualanPage() {
       setSalesDate(sale.transaction_date);
       setCustomerId(sale.customer_id || "");
       setWarehouseId(sale.warehouse_id || "");
+      setInvoiceIdentity({
+        invoice_company_id: sale.invoice_company_id || sale.company_id || company || "",
+        bank_account_id: sale.bank_account_id || "",
+        due_date: sale.due_date || "",
+        invoice_notes: sale.invoice_notes || "",
+        terms_conditions: sale.terms_conditions || "",
+      });
 
       setItems(
         ((details || []) as any[]).map((detail) => ({
@@ -534,6 +596,13 @@ export default function PenjualanPage() {
             </select>
           </div>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <InvoiceIdentityFields
+          value={invoiceIdentity}
+          onChange={setInvoiceIdentity}
+        />
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 p-4 md:p-6 mb-6">

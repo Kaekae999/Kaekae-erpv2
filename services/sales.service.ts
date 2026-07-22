@@ -4,7 +4,11 @@ import { SaveSalesInput } from "@/types/sales";
 export const SalesService = {
   async saveSales(input: SaveSalesInput) {
     if (!input.company_id) {
-      throw new Error("Perusahaan aktif belum dipilih.");
+      throw new Error("Perusahaan operasional wajib dipilih.");
+    }
+
+    if (!input.invoice_company_id) {
+      throw new Error("Perusahaan invoice wajib dipilih.");
     }
 
     const subtotalBarang = input.items.reduce(
@@ -68,10 +72,19 @@ export const SalesService = {
       .from("sales_headers")
       .insert({
         company_id: input.company_id,
+        invoice_company_id: input.invoice_company_id,
+        bank_account_id: input.bank_account_id || null,
+
         transaction_number: input.transaction_number,
         transaction_date: input.transaction_date,
+        due_date: input.due_date || null,
+
         customer_id: input.customer_id,
         warehouse_id: input.warehouse_id,
+
+        invoice_notes: input.invoice_notes?.trim() || null,
+        terms_conditions: input.terms_conditions?.trim() || null,
+
         status: "POSTED",
         goods_amount: subtotalBarang,
         subtotal_amount: subtotalBarang,
@@ -208,6 +221,7 @@ export const SalesService = {
       .eq("id", salesId);
 
     if (cancelError) throw new Error(cancelError.message);
+
     return true;
   },
 };
