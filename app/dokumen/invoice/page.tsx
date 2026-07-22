@@ -9,25 +9,27 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Eye, Download, Printer, X } from "lucide-react";
 
 export default function InvoicePage() {
-  const { workspace } = useWorkspace();
+  const { workspace, company, companies } = useWorkspace();
 
   const [sales, setSales] = useState<any[]>([]);
-  const [profile, setProfile] = useState<any>(null);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const activeCompanyName =
+    companies.find((item) => item.id === company)?.name || "Perusahaan";
+
   useEffect(() => {
     loadData();
-  }, [workspace]);
+    setSelected(null);
+  }, [workspace, company]);
 
   async function loadData() {
-    const profileResult = await supabase
-      .from("company_profiles")
-      .select("*")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
+    if (!company) {
+      setSales([]);
+      setBankAccounts([]);
+      return;
+    }
 
     let bankQuery = supabase
       .from("bank_accounts")
@@ -48,9 +50,11 @@ export default function InvoicePage() {
       .from("sales_headers")
       .select(`
         id,
+        company_id,
         transaction_number,
         transaction_date,
         payment_status,
+        status,
         goods_amount,
         subtotal_amount,
         discount_amount,
@@ -59,6 +63,20 @@ export default function InvoicePage() {
         grand_total,
         total_amount,
         gross_profit,
+        companies(
+          id,
+          code,
+          name,
+          tagline,
+          address,
+          city,
+          phone,
+          email,
+          tax_number,
+          registration_number,
+          logo_url,
+          footer_text
+        ),
         customers(
           name,
           address,
@@ -77,6 +95,8 @@ export default function InvoicePage() {
           )
         )
       `)
+      .eq("company_id", company)
+      .neq("status", "CANCELLED")
       .order("transaction_date", { ascending: false });
 
     if (salesResult.error) {
@@ -95,7 +115,6 @@ export default function InvoicePage() {
       );
     }
 
-    setProfile(profileResult.data);
     setBankAccounts(bankResult.data || []);
     setSales(rows);
   }
@@ -340,10 +359,10 @@ export default function InvoicePage() {
     <Layout>
       <PageHeader
         title="Invoice Center"
-        description="Preview dan cetak invoice dari transaksi penjualan."
+        description={`Preview dan cetak invoice penjualan ${activeCompanyName}.`}
         action={
           <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl font-semibold">
-            Invoice Aktif
+            {activeCompanyName}
           </div>
         }
       />
@@ -364,6 +383,10 @@ export default function InvoicePage() {
 
               <th className="p-3 text-left">
                 Tanggal
+              </th>
+
+              <th className="p-3 text-left">
+                Perusahaan
               </th>
 
               <th className="p-3 text-left">
@@ -395,6 +418,10 @@ export default function InvoicePage() {
                 </td>
 
                 <td className="p-3">
+                  {item.companies?.name || "-"}
+                </td>
+
+                <td className="p-3">
                   {item.customers?.name || "-"}
                 </td>
 
@@ -414,10 +441,10 @@ export default function InvoicePage() {
             {sales.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="p-8 text-center text-slate-500"
                 >
-                  Belum ada invoice.
+                  Belum ada invoice untuk perusahaan dan workspace ini.
                 </td>
               </tr>
             )}
@@ -454,304 +481,316 @@ export default function InvoicePage() {
               </div>
             </div>
 
-            <div id="invoice-document" className="w-[794px] mx-auto p-8 text-slate-900 bg-white text-[13px]">
+            <div
+              id="invoice-document"
+              className="relative w-[794px] min-h-[1123px] mx-auto bg-white text-slate-800 overflow-hidden"
+            >
+              <div className="absolute inset-x-0 top-0 h-5 bg-emerald-900" />
 
-              {/* HEADER INVOICE */}
+              {(selected?.companies?.logo_url ||
+                selected?.companies?.name
+                  ?.toUpperCase()
+                  .includes("KUSUMO BOGA")) && (
+                <img
+                  src={
+                    selected?.companies?.name
+                      ?.toUpperCase()
+                      .includes("KUSUMO BOGA")
+                      ? "/logo/kusumo-boga.jpg"
+                      : selected?.companies?.logo_url
+                  }
+                  alt=""
+                  className="absolute left-1/2 top-[430px] h-[420px] w-[420px] -translate-x-1/2 object-contain opacity-[0.025] pointer-events-none"
+                />
+              )}
 
-              <div className="bg-slate-950 text-white rounded-3xl p-6 mb-6 print:bg-slate-950">
-                <div className="flex justify-between gap-8">
-
-                  <div className="flex gap-5">
-                    <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center overflow-hidden shrink-0 p-2">
+              <div className="relative p-10 pt-12">
+                {/* HEADER */}
+                <div className="flex items-start justify-between gap-8">
+                  <div className="flex items-center gap-5">
+                    <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden">
                       <img
                         src={
-                          profile?.logo_url ||
-                          "/logo/kaekae.png"
+                          selected?.companies?.name
+                            ?.toUpperCase()
+                            .includes("KUSUMO BOGA")
+                            ? "/logo/kusumo-boga.jpg"
+                            : selected?.companies?.logo_url ||
+                              "/logo/kaekae.png"
                         }
-                        alt="Logo Kaekae"
-                        className="w-full h-full object-contain"
+                        alt={`Logo ${selected?.companies?.name || "Perusahaan"}`}
+                        className="h-full w-full object-contain"
                         onError={(event) => {
-                          event.currentTarget.style.display =
-                            "none";
+                          event.currentTarget.style.display = "none";
                         }}
                       />
                     </div>
 
                     <div>
-                      <h1 className="text-2xl font-black">
-                        {profile?.company_name || "Kaekae"}
+                      <h1 className="text-[28px] font-black leading-none tracking-wide text-emerald-900">
+                        {selected?.companies?.name || "Perusahaan"}
                       </h1>
 
-                      <p className="text-slate-300 mt-2">
-                        {profile?.address ||
-                          "Semarang, Jawa Tengah"}
-                      </p>
-
-                      <p className="text-slate-300">
-                        {profile?.phone || "-"} |{" "}
-                        {profile?.email || "-"}
+                      <p className="mt-3 text-[13px] font-bold uppercase tracking-[0.18em] text-amber-600">
+                        {selected?.companies?.tagline ||
+                          "Premium Business Partner"}
                       </p>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-amber-300 text-xs uppercase tracking-[0.25em] font-bold">
-                      Dokumen Penjualan
-                    </p>
-
-                    <h2 className="text-3xl font-black mt-2">
+                  <div className="max-w-[360px] text-right">
+                    <h2 className="text-[42px] font-black leading-none tracking-tight text-emerald-900">
                       INVOICE
                     </h2>
 
-                    <p className="mt-2 font-semibold text-amber-300">
-                      INV-{selected.transaction_number}
+                    <p className="mt-5 text-[12px] font-semibold italic text-slate-500">
+                      {selected?.companies?.address || "-"}
+                      {selected?.companies?.city
+                        ? `, ${selected.companies.city}`
+                        : ""}
                     </p>
 
-                    <p className="text-slate-300">
-                      {selected.transaction_date}
+                    <p className="mt-1 text-[12px] text-slate-500">
+                      {selected?.companies?.phone || "-"} |{" "}
+                      {selected?.companies?.email || "-"}
                     </p>
                   </div>
-
                 </div>
-              </div>
 
-              {/* CUSTOMER */}
+                <div className="mt-7 h-[3px] bg-gradient-to-r from-emerald-900 via-amber-500 to-emerald-900" />
 
-              <div className="py-4">
-                <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                  Ditagihkan Kepada
-                </p>
+                {/* INFORMASI */}
+                <div className="mt-8">
+                  <div>
+                    <div className="bg-emerald-900 px-4 py-2 font-black uppercase tracking-wide text-white">
+                      Detail Invoice
+                    </div>
 
-                <h3 className="text-lg font-bold mt-2">
-                  {selected.customers?.name || "-"}
-                </h3>
+                    <div className="bg-amber-50 px-4 py-4 text-[13px]">
+                      <div className="mb-2 grid grid-cols-[105px_1fr] gap-2">
+                        <span className="font-bold text-slate-500">
+                          No. Invoice
+                        </span>
+                        <span className="font-semibold">
+                          INV-{selected.transaction_number}
+                        </span>
+                      </div>
 
-                <p className="text-slate-500">
-                  {selected.customers?.address || "-"}
-                </p>
+                      <div className="mb-2 grid grid-cols-[105px_1fr] gap-2">
+                        <span className="font-bold text-slate-500">
+                          Tanggal
+                        </span>
+                        <span>{selected.transaction_date}</span>
+                      </div>
 
-                <p className="text-slate-500">
-                  {selected.customers?.phone || "-"}
-                </p>
-              </div>
 
-              {/* DETAIL BARANG */}
+                    </div>
+                  </div>
 
-              <table className="w-full border rounded-2xl overflow-hidden">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="p-3 text-left">
-                      No
-                    </th>
+                  <div>
+                    <div className="bg-emerald-900 px-4 py-2 font-black uppercase tracking-wide text-white">
+                      Tagihan Kepada
+                    </div>
 
-                    <th className="p-3 text-left">
-                      Produk
-                    </th>
+                    <div className="bg-amber-50 px-4 py-4 text-[13px]">
+                      <div className="mb-2 grid grid-cols-[80px_1fr] gap-2">
+                        <span className="font-bold text-slate-500">Nama</span>
+                        <span className="font-semibold">
+                          {selected.customers?.name || "-"}
+                        </span>
+                      </div>
 
-                    <th className="p-3 text-right">
-                      Qty
-                    </th>
+                      <div className="mb-2 grid grid-cols-[80px_1fr] gap-2">
+                        <span className="font-bold text-slate-500">Alamat</span>
+                        <span>{selected.customers?.address || "-"}</span>
+                      </div>
 
-                    <th className="p-3 text-center">
-                      Sat
-                    </th>
+                      <div className="grid grid-cols-[80px_1fr] gap-2">
+                        <span className="font-bold text-slate-500">Telepon</span>
+                        <span>{selected.customers?.phone || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                    <th className="p-3 text-right">
-                      Harga
-                    </th>
-
-                    
-
-                    <th className="p-3 text-right">
-                      Subtotal
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {selected.sales_details?.map(
-                    (detail: any, index: number) => (
-                      <tr
-                        key={index}
-                        className="border-t"
-                      >
-                        <td className="p-3">
-                          {index + 1}
-                        </td>
-
-                        <td className="p-3">
-                          <p className="font-semibold">
-                            {detail.products?.name || "-"}
-                          </p>
-
-                          <p className="text-xs text-slate-500">
-                            {detail.products?.code || "-"}
-                          </p>
-                        </td>
-
-                        <td className="p-3 text-right">
-                          {Number(
-                            detail.qty || 0
-                          ).toLocaleString("id-ID")}
-                        </td>
-
-                        <td className="p-3 text-center">
-                          {detail.unit_name || "-"}
-                        </td>
-
-                        <td className="p-3 text-right">
-                          Rp {formatRupiah(detail.price)}
-                        </td>
-
-                        
-
-                        <td className="p-4 text-right font-semibold">
-                          Rp{" "}
-                          {formatRupiah(detail.subtotal)}
-                        </td>
+                {/* TABEL BARANG */}
+                <div className="mt-9 overflow-hidden border border-slate-200">
+                  <table className="w-full border-collapse text-[12px]">
+                    <thead>
+                      <tr className="bg-emerald-900 text-white">
+                        <th className="w-12 p-3 text-center">NO</th>
+                        <th className="p-3 text-left">
+                          DESKRIPSI BARANG / JASA
+                        </th>
+                        <th className="w-20 p-3 text-right">QTY</th>
+                        <th className="w-20 p-3 text-center">SATUAN</th>
+                        <th className="w-32 p-3 text-right">HARGA SATUAN</th>
+                        <th className="w-32 p-3 text-right">JUMLAH</th>
                       </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
+                    </thead>
 
-              {/* TOTAL DAN TERBILANG */}
+                    <tbody>
+                      {selected.sales_details?.map(
+                        (detail: any, index: number) => (
+                          <tr
+                            key={index}
+                            className="border-b border-slate-200 last:border-b-0"
+                          >
+                            <td className="p-3 text-center">{index + 1}</td>
 
-              <div className="grid grid-cols-2 gap-6 mt-6">
+                            <td className="bg-amber-50 p-3">
+                              <p className="font-bold">
+                                {detail.products?.name || "-"}
+                              </p>
 
-                <div className="bg-slate-100 rounded-3xl p-4 h-fit">
-                  <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">
-                    Terbilang
-                  </p>
+                              <p className="mt-1 text-[10px] text-slate-500">
+                                {detail.products?.code || "-"}
+                              </p>
+                            </td>
 
-                  <p className="font-bold">
-                    {terbilang(
-                      getGrandTotal(selected)
-                    )}
-                  </p>
+                            <td className="p-3 text-right">
+                              {Number(detail.qty || 0).toLocaleString("id-ID")}
+                            </td>
+
+                            <td className="p-3 text-center">
+                              {detail.unit_name || "-"}
+                            </td>
+
+                            <td className="p-3 text-right">
+                              Rp {formatRupiah(detail.price)}
+                            </td>
+
+                            <td className="bg-emerald-50 p-3 text-right font-bold">
+                              Rp {formatRupiah(detail.subtotal)}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div className="flex justify-end">
-                  <div className="w-80">
+                {/* CATATAN DAN TOTAL */}
+                <div className="mt-8 grid grid-cols-2 gap-8">
+                  <div>
+                    <div className="min-h-[145px] border border-amber-100 bg-amber-50 p-4">
+                      <p className="font-black uppercase text-emerald-900">
+                        Catatan
+                      </p>
 
-                    <div className="flex justify-between border-b py-2">
-                      <span>
-                        Subtotal Barang
+                      <p className="mt-3 text-[12px] italic leading-relaxed text-slate-600">
+                        {selected?.companies?.footer_text ||
+                          "Terima kasih atas kepercayaan Anda kepada kami."}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Terbilang
+                      </p>
+
+                      <p className="mt-2 text-[12px] font-bold leading-relaxed">
+                        {terbilang(getGrandTotal(selected))}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-[13px]">
+                    <div className="flex items-center justify-between border-b border-slate-200 py-2">
+                      <span className="font-semibold text-slate-600">
+                        Subtotal
                       </span>
-
                       <span className="font-bold">
-                        Rp{" "}
-                        {formatRupiah(
-                          getSubtotalBarang(selected)
-                        )}
+                        Rp {formatRupiah(getSubtotalBarang(selected))}
                       </span>
                     </div>
 
-                    <div className="flex justify-between border-b py-2">
-                      <span>
+                    <div className="flex items-center justify-between border-b border-slate-200 py-2">
+                      <span className="font-semibold text-slate-600">
                         Diskon
                       </span>
-
-                      <span>
-                        Rp{" "}
-                        {formatRupiah(
-                          getDiscountAmount(selected)
-                        )}
+                      <span className="font-bold">
+                        Rp {formatRupiah(getDiscountAmount(selected))}
                       </span>
                     </div>
 
-                    <div className="flex justify-between border-b py-2">
-                      <span>
-                        PPN
+                    <div className="flex items-center justify-between border-b border-slate-200 py-2">
+                      <span className="font-semibold text-slate-600">
+                        Pajak
                         {getTaxPercent(selected) > 0
                           ? ` (${getTaxPercent(selected)}%)`
                           : ""}
                       </span>
-
-                      <span>
-                        Rp{" "}
-                        {formatRupiah(
-                          getTaxAmount(selected)
-                        )}
+                      <span className="font-bold">
+                        Rp {formatRupiah(getTaxAmount(selected))}
                       </span>
                     </div>
 
-                    <div className="bg-slate-950 text-white rounded-2xl px-4 py-3 mt-3 flex justify-between items-center gap-4 text-lg font-black">
-                      <span>
-                        Grand Total
-                      </span>
-
-                      <span>
-                        Rp{" "}
-                        {formatRupiah(
-                          getGrandTotal(selected)
-                        )}
-                      </span>
+                    <div className="mt-3 flex items-center justify-between bg-amber-500 px-4 py-3 text-[17px] font-black text-white">
+                      <span>TOTAL</span>
+                      <span>Rp {formatRupiah(getGrandTotal(selected))}</span>
                     </div>
 
+                    <div className="flex items-center justify-between bg-emerald-900 px-4 py-3 text-[17px] font-black text-white">
+                      <span>SISA TAGIHAN</span>
+                      <span>Rp {formatRupiah(getGrandTotal(selected))}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* QR PEMBAYARAN */}
-
-              <div className="mt-7 border-t pt-5">
-                <p className="text-center text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-3">
-                  Metode Pembayaran QR
-                </p>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {bankAccounts
-                    .slice(0, 2)
-                    .map((bank, index) => (
-                      <div
-                        key={bank.id}
-                        className="border border-slate-200 rounded-3xl p-4 bg-slate-50"
-                      >
-                        <p className="text-center text-xs uppercase tracking-widest text-amber-600 font-bold">
-                          {getPaymentLabel(index)}
-                        </p>
-
-                        <h3 className="text-center text-lg font-bold mt-1">
-                          {bank.bank_name || "-"}
-                        </h3>
-
-                        <p className="text-center text-sm text-slate-600 mt-1">
-                          {bank.account_number || "-"}
-                        </p>
-
-                        <p className="text-center text-sm text-slate-600 mb-4">
-                          a.n {bank.account_name || "-"}
-                        </p>
-
-                        <div className="flex justify-center">
-                          <img
-                            src={getPaymentImage(index)}
-                            alt={getPaymentLabel(index)}
-                            className="w-32 h-32 object-contain bg-white rounded-2xl border p-2"
-                          />
-                        </div>
-                      </div>
-                    ))}
-
-                  {bankAccounts.length === 0 && (
-                    <div className="md:col-span-2 text-center text-slate-500 border rounded-3xl p-6">
-                      Belum ada rekening bank aktif.
+                {/* INFORMASI PEMBAYARAN */}
+                <div className="mt-8 grid grid-cols-2 gap-8">
+                  <div>
+                    <div className="bg-emerald-900 px-4 py-2 font-black uppercase tracking-wide text-white">
+                      Informasi Pembayaran
                     </div>
-                  )}
+
+                    <div className="grid grid-cols-2 gap-6 bg-amber-50 p-4 text-[13px]">
+                      {bankAccounts.length > 0 ? (
+                        bankAccounts.slice(0, 2).map((bank) => (
+                          <div
+                            key={bank.id}
+                            className="mb-4 last:mb-0"
+                          >
+                            <div className="mb-2 grid grid-cols-[105px_1fr] gap-2">
+                              <span className="font-bold text-slate-500">
+                                Bank
+                              </span>
+                              <span>{bank.bank_name || "-"}</span>
+                            </div>
+
+                            <div className="mb-2 grid grid-cols-[105px_1fr] gap-2">
+                              <span className="font-bold text-slate-500">
+                                No. Rekening
+                              </span>
+                              <span>{bank.account_number || "-"}</span>
+                            </div>
+
+                            <div className="grid grid-cols-[105px_1fr] gap-2">
+                              <span className="font-bold text-slate-500">
+                                Atas Nama
+                              </span>
+                              <span>{bank.account_name || "-"}</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-slate-500">
+                          Belum ada rekening bank aktif.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+
                 </div>
 
-                <p className="text-center text-xs text-slate-500 mt-3">
-                  Silakan scan salah satu QR pembayaran yang tersedia.
-                </p>
+                {/* FOOTER */}
+                <div className="mt-9 border-t-4 border-amber-500 bg-emerald-50 px-5 py-3 text-center text-[10px] italic text-slate-600">
+                  Barang yang telah diterima dengan baik menjadi tanggung jawab
+                  pelanggan. Mohon simpan invoice ini sebagai bukti transaksi.
+                </div>
               </div>
-
-              {/* FOOTER */}
-
-              <div className="mt-6 border-t pt-4 text-center text-slate-500 text-sm">
-                Terima kasih atas kepercayaan Anda.
-              </div>
-
             </div>
           </div>
         </div>
