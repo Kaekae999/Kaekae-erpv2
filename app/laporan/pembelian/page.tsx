@@ -4,14 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Layout from "@/components/layout/Layout";
 import PageHeader from "@/components/ui/PageHeader";
 import { supabase } from "@/lib/supabase";
-import {
-  Download,
-  FileSpreadsheet,
-  FileText,
-  Search,
-} from "lucide-react";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { FileSpreadsheet, FileText, Search } from "lucide-react";
 
 export default function LaporanPembelianPage() {
+  const { company, companies, workspace } = useWorkspace();
   const today = new Date();
 
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -20,70 +17,94 @@ export default function LaporanPembelianPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const companyName =
+    companies.find((item) => item.id === company)?.name || "Perusahaan";
+
   useEffect(() => {
     loadData();
-  }, [month, year]);
+  }, [month, year, company, workspace]);
 
   function periodRange() {
     const start = `${year}-${String(month).padStart(2, "0")}-01`;
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const end = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
-
     return { start, end };
   }
 
   async function loadData() {
-    setIsLoading(true);
-
-    const { start, end } = periodRange();
-
-    const { data, error } = await supabase
-      .from("purchase_headers")
-      .select(`
-        id,
-        transaction_number,
-        transaction_date,
-        supplier_id,
-        warehouse_id,
-        goods_amount,
-        operational_cost,
-        grand_total,
-        total_amount,
-        status,
-        suppliers(name),
-        warehouses(name),
-        purchase_details(
-          qty,
-          price,
-          subtotal,
-          operational_cost,
-          total_cost,
-          unit_cost,
-          products(code, name)
-        )
-      `)
-      .gte("transaction_date", start)
-      .lt("transaction_date", end)
-      .order("transaction_date", { ascending: true });
-
-    setIsLoading(false);
-
-    if (error) {
-      alert("Gagal memuat laporan pembelian: " + error.message);
+    if (!company) {
+      setRows([]);
       return;
     }
 
-    setRows(data || []);
+    setIsLoading(true);
+
+    try {
+      const { start, end } = periodRange();
+
+      const { data, error } = await supabase
+        .from("purchase_headers")
+        .select(`
+          id,
+          company_id,
+          transaction_number,
+          transaction_date,
+          supplier_id,
+          warehouse_id,
+          goods_amount,
+          operational_cost,
+          grand_total,
+          total_amount,
+          status,
+          suppliers(name),
+          warehouses(name),
+          purchase_details(
+            qty,
+            price,
+            subtotal,
+            operational_cost,
+            total_cost,
+            unit_cost,
+            products(code, name, business_type_id)
+          )
+        `)
+        .eq("company_id", company)
+        .gte("transaction_date", start)
+        .lt("transaction_date", end)
+        .order("transaction_date", { ascending: true });
+
+      if (error) throw new Error(error.message);
+
+      let result = data || [];
+
+      if (workspace !== "all") {
+        result = result.filter((purchase: any) =>
+          (purchase.purchase_details || []).some(
+            (detail: any) =>
+              detail.products?.business_type_id === workspace
+          )
+        );
+      }
+
+      setRows(result);
+    } catch (error) {
+      alert(
+        "Gagal memuat laporan pembelian: " +
+          (error instanceof Error ? error.message : "Error tidak diketahui")
+      );
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const filteredRows = useMemo(() => {
     const q = keyword.trim().toLowerCase();
-
     if (!q) return rows;
 
-    return rows.filter((item) => {
-      const text = [
+    return rows.filter((item) =>
+      [
         item.transaction_number,
         item.transaction_date,
         item.status,
@@ -91,10 +112,9 @@ export default function LaporanPembelianPage() {
         item.warehouses?.name,
       ]
         .join(" ")
-        .toLowerCase();
-
-      return text.includes(q);
-    });
+        .toLowerCase()
+        .includes(q)
+    );
   }, [rows, keyword]);
 
   const activeRows = filteredRows.filter(
@@ -122,27 +142,25 @@ export default function LaporanPembelianPage() {
       const details = purchase.purchase_details || [];
 
       if (details.length === 0) {
-        return [
-          {
-            "No Transaksi": purchase.transaction_number,
-            Tanggal: purchase.transaction_date,
-            Supplier: purchase.suppliers?.name || "-",
-            Gudang: purchase.warehouses?.name || "-",
-            Status: purchase.status || "-",
-            "Kode Produk": "-",
-            Produk: "-",
-            Qty: 0,
-            Harga: 0,
-            Subtotal: 0,
-            "Biaya Pembelian": Number(purchase.operational_cost || 0),
-            "Total Modal": Number(
-              purchase.grand_total ?? purchase.total_amount ?? 0
-            ),
-          },
-        ];
+        return [{
+          Perusahaan: companyName,
+          "No Transaksi": purchase.transaction_number,
+          Tanggal: purchase.transaction_date,
+          Supplier: purchase.suppliers?.name || "-",
+          Gudang: purchase.warehouses?.name || "-",
+          Status: purchase.status || "-",
+          "Kode Produk": "-",
+          Produk: "-",
+          Qty: 0,
+          Harga: 0,
+          Subtotal: 0,
+          "Biaya Pembelian": Number(purchase.operational_cost || 0),
+          "Total Modal": Number(purchase.grand_total ?? purchase.total_amount ?? 0),
+        }];
       }
 
       return details.map((detail: any, index: number) => ({
+        Perusahaan: companyName,
         "No Transaksi": purchase.transaction_number,
         Tanggal: purchase.transaction_date,
         Supplier: purchase.suppliers?.name || "-",
@@ -163,6 +181,13 @@ export default function LaporanPembelianPage() {
     });
   }
 
+  function slugify(value: string) {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
   async function exportExcel() {
     if (filteredRows.length === 0) {
       alert("Tidak ada data untuk diexport.");
@@ -170,31 +195,13 @@ export default function LaporanPembelianPage() {
     }
 
     const XLSX = await import("xlsx");
-
-    const data = flatRows();
-    const worksheet = XLSX.utils.json_to_sheet(data);
-
-    worksheet["!cols"] = [
-      { wch: 22 },
-      { wch: 12 },
-      { wch: 24 },
-      { wch: 18 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 28 },
-      { wch: 10 },
-      { wch: 15 },
-      { wch: 16 },
-      { wch: 18 },
-      { wch: 18 },
-    ];
-
+    const worksheet = XLSX.utils.json_to_sheet(flatRows());
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Pembelian");
 
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Pembelian");
     XLSX.writeFile(
       workbook,
-      `laporan-pembelian-${year}-${String(month).padStart(2, "0")}.xlsx`
+      `laporan-pembelian-${slugify(companyName)}-${year}-${String(month).padStart(2, "0")}.xlsx`
     );
   }
 
@@ -205,13 +212,11 @@ export default function LaporanPembelianPage() {
     }
 
     const { jsPDF } = await import("jspdf");
-    const autoTableModule = await import("jspdf-autotable");
-    const autoTable = autoTableModule.default;
-
+    const autoTable = (await import("jspdf-autotable")).default;
     const pdf = new jsPDF("l", "mm", "a4");
 
     pdf.setFontSize(16);
-    pdf.text("LAPORAN PEMBELIAN KAEKAE", 14, 15);
+    pdf.text(`LAPORAN PEMBELIAN ${companyName.toUpperCase()}`, 14, 15);
 
     pdf.setFontSize(10);
     pdf.text(
@@ -225,65 +230,29 @@ export default function LaporanPembelianPage() {
 
     autoTable(pdf, {
       startY: 28,
-      head: [
-        [
-          "Tanggal",
-          "No Transaksi",
-          "Supplier",
-          "Status",
-          "Barang",
-          "Biaya Pembelian",
-          "Total Modal",
-        ],
-      ],
+      head: [[
+        "Tanggal",
+        "No Transaksi",
+        "Supplier",
+        "Status",
+        "Barang",
+        "Biaya Pembelian",
+        "Total Modal",
+      ]],
       body: filteredRows.map((item) => [
         item.transaction_date,
         item.transaction_number,
         item.suppliers?.name || "-",
         item.status || "-",
-        `Rp ${Math.round(Number(item.goods_amount || 0)).toLocaleString(
-          "id-ID"
-        )}`,
-        `Rp ${Math.round(Number(item.operational_cost || 0)).toLocaleString(
-          "id-ID"
-        )}`,
-        `Rp ${Math.round(
-          Number(item.grand_total ?? item.total_amount ?? 0)
-        ).toLocaleString("id-ID")}`,
+        `Rp ${Math.round(Number(item.goods_amount || 0)).toLocaleString("id-ID")}`,
+        `Rp ${Math.round(Number(item.operational_cost || 0)).toLocaleString("id-ID")}`,
+        `Rp ${Math.round(Number(item.grand_total ?? item.total_amount ?? 0)).toLocaleString("id-ID")}`,
       ]),
-      styles: {
-        fontSize: 8,
-      },
-      headStyles: {
-        fontStyle: "bold",
-      },
+      styles: { fontSize: 8 },
     });
 
-    const finalY = (pdf as any).lastAutoTable?.finalY || 40;
-
-    pdf.setFontSize(10);
-    pdf.text(
-      `Total Barang: Rp ${Math.round(totalBarang).toLocaleString("id-ID")}`,
-      14,
-      finalY + 10
-    );
-
-    pdf.text(
-      `Total Biaya Pembelian: Rp ${Math.round(
-        totalBiayaPembelian
-      ).toLocaleString("id-ID")}`,
-      14,
-      finalY + 16
-    );
-
-    pdf.text(
-      `Total Modal: Rp ${Math.round(totalModal).toLocaleString("id-ID")}`,
-      14,
-      finalY + 22
-    );
-
     pdf.save(
-      `laporan-pembelian-${year}-${String(month).padStart(2, "0")}.pdf`
+      `laporan-pembelian-${slugify(companyName)}-${year}-${String(month).padStart(2, "0")}.pdf`
     );
   }
 
@@ -291,12 +260,12 @@ export default function LaporanPembelianPage() {
     <Layout>
       <PageHeader
         title="Laporan Pembelian"
-        description="Riwayat pembelian lengkap dengan biaya pembelian, total modal, dan export Excel/PDF."
+        description={`Riwayat pembelian ${companyName} sesuai workspace aktif.`}
         action={
           <div className="flex flex-wrap gap-2">
             <button
               onClick={exportExcel}
-              className="flex items-center gap-2 px-3 md:px-4 py-3 rounded-2xl bg-emerald-600 text-white font-bold text-sm md:text-base"
+              className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-600 text-white font-bold"
             >
               <FileSpreadsheet size={18} />
               Excel
@@ -304,7 +273,7 @@ export default function LaporanPembelianPage() {
 
             <button
               onClick={exportPdf}
-              className="flex items-center gap-2 px-3 md:px-4 py-3 rounded-2xl bg-red-600 text-white font-bold text-sm md:text-base"
+              className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-red-600 text-white font-bold"
             >
               <FileText size={18} />
               PDF
@@ -314,7 +283,7 @@ export default function LaporanPembelianPage() {
       />
 
       <div className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-sm font-semibold">Bulan</label>
             <select
@@ -322,15 +291,13 @@ export default function LaporanPembelianPage() {
               onChange={(e) => setMonth(Number(e.target.value))}
               className="mt-2 w-full border rounded-2xl px-4 py-3"
             >
-              {Array.from({ length: 12 }, (_, index) => index + 1).map(
-                (item) => (
-                  <option key={item} value={item}>
-                    {new Date(year, item - 1, 1).toLocaleDateString("id-ID", {
-                      month: "long",
-                    })}
-                  </option>
-                )
-              )}
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>
+                  {new Date(year, m - 1, 1).toLocaleDateString("id-ID", {
+                    month: "long",
+                  })}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -344,12 +311,10 @@ export default function LaporanPembelianPage() {
             />
           </div>
 
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div className="sm:col-span-2">
             <label className="text-sm font-semibold">Cari</label>
-
             <div className="mt-2 flex items-center gap-2 border rounded-2xl px-4">
               <Search size={18} className="text-slate-400" />
-
               <input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
@@ -361,15 +326,18 @@ export default function LaporanPembelianPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         <Summary title="Total Barang" value={totalBarang} />
         <Summary title="Biaya Pembelian" value={totalBiayaPembelian} />
         <Summary title="Total Modal" value={totalModal} />
       </div>
 
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden">
-        <div className="px-4 md:px-6 py-4 md:py-5 border-b flex flex-col sm:flex-row sm:justify-between gap-2">
-          <h2 className="font-bold text-lg">Riwayat Pembelian</h2>
+        <div className="px-6 py-5 border-b flex justify-between gap-4">
+          <div>
+            <h2 className="font-bold text-lg">Riwayat Pembelian</h2>
+            <p className="text-sm text-slate-500 mt-1">{companyName}</p>
+          </div>
 
           <span className="text-sm text-slate-500">
             {isLoading ? "Memuat..." : `${filteredRows.length} transaksi`}
@@ -395,46 +363,18 @@ export default function LaporanPembelianPage() {
               {filteredRows.map((item) => (
                 <tr key={item.id} className="border-t hover:bg-slate-50">
                   <td className="p-4">{item.transaction_date}</td>
-
-                  <td className="p-4 font-semibold">
-                    {item.transaction_number}
-                  </td>
-
+                  <td className="p-4 font-semibold">{item.transaction_number}</td>
                   <td className="p-4">{item.suppliers?.name || "-"}</td>
-
                   <td className="p-4">{item.warehouses?.name || "-"}</td>
-
-                  <td className="p-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        item.status === "CANCELLED"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-emerald-100 text-emerald-700"
-                      }`}
-                    >
-                      {item.status || "-"}
-                    </span>
-                  </td>
-
+                  <td className="p-4">{item.status || "-"}</td>
                   <td className="p-4 text-right font-semibold">
-                    Rp{" "}
-                    {Math.round(Number(item.goods_amount || 0)).toLocaleString(
-                      "id-ID"
-                    )}
+                    Rp {Math.round(Number(item.goods_amount || 0)).toLocaleString("id-ID")}
                   </td>
-
                   <td className="p-4 text-right">
-                    Rp{" "}
-                    {Math.round(
-                      Number(item.operational_cost || 0)
-                    ).toLocaleString("id-ID")}
+                    Rp {Math.round(Number(item.operational_cost || 0)).toLocaleString("id-ID")}
                   </td>
-
                   <td className="p-4 text-right font-bold">
-                    Rp{" "}
-                    {Math.round(
-                      Number(item.grand_total ?? item.total_amount ?? 0)
-                    ).toLocaleString("id-ID")}
+                    Rp {Math.round(Number(item.grand_total ?? item.total_amount ?? 0)).toLocaleString("id-ID")}
                   </td>
                 </tr>
               ))}
@@ -442,7 +382,7 @@ export default function LaporanPembelianPage() {
               {!isLoading && filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="p-10 text-center text-slate-500">
-                    Belum ada transaksi pada periode ini.
+                    Belum ada transaksi untuk perusahaan dan workspace ini.
                   </td>
                 </tr>
               )}
@@ -456,9 +396,9 @@ export default function LaporanPembelianPage() {
 
 function Summary({ title, value }: { title: string; value: number }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6">
+    <div className="bg-white border border-slate-200 rounded-3xl p-6">
       <p className="text-sm text-slate-500">{title}</p>
-      <p className="text-xl md:text-2xl font-black mt-2">
+      <p className="text-2xl font-black mt-2">
         Rp {Math.round(value).toLocaleString("id-ID")}
       </p>
     </div>
