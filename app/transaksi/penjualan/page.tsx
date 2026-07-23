@@ -57,7 +57,8 @@ interface SalesHistory {
   status: string;
   customers: { name: string } | null;
   warehouses: { name: string } | null;
-  companies: { name: string } | null;
+  operational_company: { name: string } | null;
+  invoice_company: { name: string } | null;
 }
 
 type DiscountType = "nominal" | "percent";
@@ -177,7 +178,8 @@ export default function PenjualanPage() {
         status,
         customers(name),
         warehouses(name),
-        companies(name)
+        operational_company:companies!sales_headers_company_id_fkey(name),
+        invoice_company:companies!sales_headers_invoice_company_id_fkey(name)
       `);
 
     if (company) {
@@ -841,12 +843,13 @@ export default function PenjualanPage() {
         </p>
 
         <div className="border rounded-2xl overflow-hidden overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
+          <table className="w-full min-w-[1250px]">
             <thead className="bg-slate-100">
               <tr>
                 <th className="p-4 text-left">No Transaksi</th>
                 <th className="p-4 text-left">Tanggal</th>
-                <th className="p-4 text-left">Perusahaan</th>
+                <th className="p-4 text-left">Perusahaan Operasional</th>
+                <th className="p-4 text-left">Perusahaan Invoice</th>
                 <th className="p-4 text-left">Customer</th>
                 <th className="p-4 text-left">Gudang</th>
                 <th className="p-4 text-right">Subtotal</th>
@@ -865,7 +868,14 @@ export default function PenjualanPage() {
                     {sale.transaction_number}
                   </td>
                   <td className="p-4">{sale.transaction_date}</td>
-                  <td className="p-4">{sale.companies?.name || "-"}</td>
+                  <td className="p-4">
+                    {sale.operational_company?.name || "-"}
+                  </td>
+                  <td className="p-4">
+                    {sale.invoice_company?.name ||
+                      sale.operational_company?.name ||
+                      "-"}
+                  </td>
                   <td className="p-4">{sale.customers?.name || "-"}</td>
                   <td className="p-4">{sale.warehouses?.name || "-"}</td>
                   <td className="p-4 text-right">
@@ -939,7 +949,7 @@ export default function PenjualanPage() {
 
               {salesHistory.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="p-8 text-center text-slate-500">
+                  <td colSpan={12} className="p-8 text-center text-slate-500">
                     Belum ada riwayat penjualan.
                   </td>
                 </tr>
