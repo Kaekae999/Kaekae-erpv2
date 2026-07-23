@@ -268,6 +268,21 @@ export default function InvoicePage() {
     return "QR Pembayaran";
   }
 
+  function isKaekaeInvoice(sale: any) {
+    return String(sale?.companies?.name || "")
+      .toLowerCase()
+      .includes("kaekae");
+  }
+
+  function getPaymentImageByBank(bank: any, fallbackIndex: number) {
+    const bankName = String(bank?.bank_name || "").toLowerCase();
+
+    if (bankName.includes("jateng")) return "/payment/bima.png";
+    if (bankName.includes("mandiri")) return "/payment/livin.png";
+
+    return getPaymentImage(fallbackIndex);
+  }
+
   function getSubtotalBarang(sale: any) {
     if (sale?.subtotal_amount !== null && sale?.subtotal_amount !== undefined) {
       return Number(sale.subtotal_amount || 0);
@@ -511,7 +526,320 @@ export default function InvoicePage() {
               </div>
             </div>
 
-            <div
+            {isKaekaeInvoice(selected) ? (
+              <>
+<div id="invoice-document" className="w-[794px] mx-auto p-8 text-slate-900 bg-white text-[13px]">
+
+              {/* HEADER INVOICE */}
+
+              <div className="bg-slate-950 text-white rounded-3xl p-6 mb-6 print:bg-slate-950">
+                <div className="flex justify-between gap-8">
+
+                  <div className="flex gap-5">
+                    <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center overflow-hidden shrink-0 p-2">
+                      <img
+                        src={
+                          selected?.companies?.logo_url ||
+                          "/logo/kaekae.png"
+                        }
+                        alt={`Logo ${selected?.companies?.name || "Perusahaan"}`}
+                        className="w-full h-full object-contain"
+                        onError={(event) => {
+                          event.currentTarget.style.display =
+                            "none";
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <h1 className="text-2xl font-black">
+                        {selected?.companies?.name || "Perusahaan"}
+                      </h1>
+
+                      {selected?.companies?.tagline && (
+                        <p className="text-amber-300 font-semibold mt-1">
+                          {selected.companies.tagline}
+                        </p>
+                      )}
+
+                      <p className="text-slate-300 mt-2">
+                        {selected?.companies?.address || "-"}
+                        {selected?.companies?.city
+                          ? `, ${selected.companies.city}`
+                          : ""}
+                      </p>
+
+                      <p className="text-slate-300">
+                        {selected?.companies?.phone || "-"} |{" "}
+                        {selected?.companies?.email || "-"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-amber-300 text-xs uppercase tracking-[0.25em] font-bold">
+                      Dokumen Penjualan
+                    </p>
+
+                    <h2 className="text-3xl font-black mt-2">
+                      INVOICE
+                    </h2>
+
+                    <p className="mt-2 font-semibold text-amber-300">
+                      INV-{selected.transaction_number}
+                    </p>
+
+                    <p className="text-slate-300">
+                      {selected.transaction_date}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* CUSTOMER */}
+
+              <div className="py-4">
+                <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                  Ditagihkan Kepada
+                </p>
+
+                <h3 className="text-lg font-bold mt-2">
+                  {selected.customers?.name || "-"}
+                </h3>
+
+                <p className="text-slate-500">
+                  {selected.customers?.address || "-"}
+                </p>
+
+                <p className="text-slate-500">
+                  {selected.customers?.phone || "-"}
+                </p>
+              </div>
+
+              {/* DETAIL BARANG */}
+
+              <table className="w-full border rounded-2xl overflow-hidden">
+                <thead className="bg-slate-100">
+                  <tr>
+                    <th className="p-3 text-left">
+                      No
+                    </th>
+
+                    <th className="p-3 text-left">
+                      Produk
+                    </th>
+
+                    <th className="p-3 text-right">
+                      Qty
+                    </th>
+
+                    <th className="p-3 text-center">
+                      Sat
+                    </th>
+
+                    <th className="p-3 text-right">
+                      Harga
+                    </th>
+
+                    
+
+                    <th className="p-3 text-right">
+                      Subtotal
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {selected.sales_details?.map(
+                    (detail: any, index: number) => (
+                      <tr
+                        key={index}
+                        className="border-t"
+                      >
+                        <td className="p-3">
+                          {index + 1}
+                        </td>
+
+                        <td className="p-3">
+                          <p className="font-semibold">
+                            {detail.products?.name || "-"}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            {detail.products?.code || "-"}
+                          </p>
+                        </td>
+
+                        <td className="p-3 text-right">
+                          {Number(
+                            detail.qty || 0
+                          ).toLocaleString("id-ID")}
+                        </td>
+
+                        <td className="p-3 text-center">
+                          {detail.unit_name || "-"}
+                        </td>
+
+                        <td className="p-3 text-right">
+                          Rp {formatRupiah(detail.price)}
+                        </td>
+
+                        
+
+                        <td className="p-4 text-right font-semibold">
+                          Rp{" "}
+                          {formatRupiah(detail.subtotal)}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+
+              {/* TOTAL DAN TERBILANG */}
+
+              <div className="grid grid-cols-2 gap-6 mt-6">
+
+                <div className="bg-slate-100 rounded-3xl p-4 h-fit">
+                  <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">
+                    Terbilang
+                  </p>
+
+                  <p className="font-bold">
+                    {terbilang(
+                      getGrandTotal(selected)
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <div className="w-80">
+
+                    <div className="flex justify-between border-b py-2">
+                      <span>
+                        Subtotal Barang
+                      </span>
+
+                      <span className="font-bold">
+                        Rp{" "}
+                        {formatRupiah(
+                          getSubtotalBarang(selected)
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between border-b py-2">
+                      <span>
+                        Diskon
+                      </span>
+
+                      <span>
+                        Rp{" "}
+                        {formatRupiah(
+                          getDiscountAmount(selected)
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between border-b py-2">
+                      <span>
+                        PPN
+                        {getTaxPercent(selected) > 0
+                          ? ` (${getTaxPercent(selected)}%)`
+                          : ""}
+                      </span>
+
+                      <span>
+                        Rp{" "}
+                        {formatRupiah(
+                          getTaxAmount(selected)
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-950 text-white rounded-2xl px-4 py-3 mt-3 flex justify-between items-center gap-4 text-lg font-black">
+                      <span>
+                        Grand Total
+                      </span>
+
+                      <span>
+                        Rp{" "}
+                        {formatRupiah(
+                          getGrandTotal(selected)
+                        )}
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* QR PEMBAYARAN */}
+
+              <div className="mt-7 border-t pt-5">
+                <p className="text-center text-[11px] uppercase tracking-widest text-slate-400 font-bold mb-3">
+                  Metode Pembayaran QR
+                </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {bankAccounts
+                    .slice(0, 2)
+                    .map((bank, index) => (
+                      <div
+                        key={bank.id}
+                        className="border border-slate-200 rounded-3xl p-4 bg-slate-50"
+                      >
+                        <p className="text-center text-xs uppercase tracking-widest text-amber-600 font-bold">
+                          {getPaymentLabel(index)}
+                        </p>
+
+                        <h3 className="text-center text-lg font-bold mt-1">
+                          {bank.bank_name || "-"}
+                        </h3>
+
+                        <p className="text-center text-sm text-slate-600 mt-1">
+                          {bank.account_number || "-"}
+                        </p>
+
+                        <p className="text-center text-sm text-slate-600 mb-4">
+                          a.n {bank.account_name || "-"}
+                        </p>
+
+                        <div className="flex justify-center">
+                          <img
+                            src={getPaymentImageByBank(bank, index)}
+                            alt={getPaymentLabel(index)}
+                            className="w-32 h-32 object-contain bg-white rounded-2xl border p-2"
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                  {!selected?.bank_accounts && bankAccounts.length === 0 && (
+                    <div className="md:col-span-2 text-center text-slate-500 border rounded-3xl p-6">
+                      Belum ada rekening bank aktif.
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-center text-xs text-slate-500 mt-3">
+                  Silakan scan salah satu QR pembayaran yang tersedia.
+                </p>
+              </div>
+
+              {/* FOOTER */}
+
+              <div className="mt-6 border-t pt-4 text-center text-slate-500 text-sm">
+                {selected?.companies?.footer_text ||
+                  "Terima kasih atas kepercayaan Anda."}
+              </div>
+
+            </div>
+              </>
+            ) : (
+              <>
+<div
               id="invoice-document"
               className="relative mx-auto min-h-[1123px] w-[794px] overflow-hidden bg-white text-slate-800"
             >
@@ -731,6 +1059,8 @@ export default function InvoicePage() {
                 </div>
               </div>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
